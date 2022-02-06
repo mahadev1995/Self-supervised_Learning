@@ -1,1 +1,1 @@
-# Self-supervised_Learning
+# Self supervised Learning
