@@ -1,0 +1,72 @@
+from models.small_resnet import ResNet, BasicBlock
+import torch
+import torch.nn as nn
+ 
+
+class Encoder(nn.Module):
+    def __init__(self, in_channels=3, out_channels=64, flatten=True):
+        super(Encoder, self).__init__()
+        self.tower =  ResNet(BasicBlock, [5, 5, 5], channels=[out_channels//4, out_channels//2, out_channels], flatten=flatten)
+
+    def forward(self, x):
+        # print(x[:, 0].shape)
+        out1 = self.tower(x[:, 0])
+        out2 = self.tower(x[:, 1])
+        out3 = self.tower(x[:, 2])
+        out4 = self.tower(x[:, 3])
+        out5 = self.tower(x[:, 4])
+        out6 = self.tower(x[:, 5])
+        out7 = self.tower(x[:, 6])
+        out8 = self.tower(x[:, 7])
+        # print(out8.shape)
+        output = torch.cat((out1, out2, out3, out4, out5, out6, out7, out8), dim=1)
+        # print(output.shape)
+        
+
+        return output
+
+
+class Decoder(nn.Module):
+  def __init__(self, in_channels=512, out_channels=3):
+    super(Decoder, self).__init__()
+    self.decoder_block = nn.Sequential(
+        nn.Conv2d(in_channels, 512, 3, padding='same'),
+        nn.ReLU(),
+        #-----------------
+        nn.Upsample(scale_factor=2, mode='nearest'),
+        nn.Conv2d(512, 256, 3, padding=1),
+        # nn.BatchNorm2d(128),                                
+        nn.ReLU(),
+        #-----------------
+        nn.Upsample(scale_factor=2, mode='nearest'),
+        nn.Conv2d(256, 128, 3, stride=1, padding=1),
+        # nn.BatchNorm2d(128),
+        nn.LeakyReLU(),
+
+        nn.Upsample(scale_factor=2, mode='nearest'),
+        nn.Conv2d(128, 64, 3, padding=1),
+        # nn.BatchNorm2d(64),   
+        nn.ReLU(),
+
+        nn.Upsample(scale_factor=2, mode='nearest'),
+        nn.Conv2d(64, out_channels, 3, padding=1),
+        nn.Sigmoid(), 
+        # nn.Tanh(),           
+    )
+  
+  def forward(self, x):
+    decoder_output = self.decoder_block(x)
+    return decoder_output
+
+
+class PatchAutoEncoder(nn.Module):
+  def __init__(self, in_channels=3, out_channels=64):
+    super(PatchAutoEncoder, self).__init__()
+    self.encoder = Encoder(in_channels, out_channels, flatten=True)
+    self.decoder = Decoder(out_channels*8, in_channels)
+
+  def forward(self, x):
+    encoder_output = self.encoder(x)
+    encoder_output = encoder_output.view(encoder_output.shape[0], encoder_output.shape[1], 1, 1)
+    decoder_output = self.decoder(encoder_output)
+    return decoder_output
