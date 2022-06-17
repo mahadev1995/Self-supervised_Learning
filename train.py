@@ -1,73 +1,93 @@
-import torch as t
-from torchvision import transforms as T
-from torchsummary import summary
-from utilities.data_loader import CustomDataset, PatchCIFAR100
-from torch.utils.data import DataLoader
-from utilities.trainer import Trainer
-# from models.AE import AutoEncoder
-# from models.patchAE import PatchAutoEncoder
 from models.ResnetPatchAE import PatchAutoEncoder
+from utilities.data_loader import MultiPatchCIFAR100
+from torch.utils.data import DataLoader
+from torchvision import transforms as T
+from utilities.trainer import Trainer
 import matplotlib.pyplot as plt
-from pytorch_msssim import MS_SSIM, SSIM
+import pandas as pd 
+import torch as t
 import time
-
+import os
+# from models.ConvPatchAE import PatchAutoEncoder
+# from utilities.aeTrainer import Trainer
+# from models.ResnetAE import ResnetAE
+# from torchsummary import summary
  
 t.manual_seed(42)
 
 train_data_path = '../data/training_dataset/*.JPEG'
 grid_size = 4
-batch_size = 64
-learning_rate = 0.00001
-epochs = 100
-ckpt_path = './resnet_encoder'
-loss_name = 'l1+ssim'  #['mse', 'msssim', 'l1+ssim']
-save_interval = 20
+batch_size = 2                 # actual batch size with 8 images = 8*4*16=512
+learning_rate = 0.00001        # 0.00001, 0.0001, 0.01
+start_epoch = 30
+end_epoch = 200
+
+lmbda = 1 
+
+ckpt_path = './ckpts/cifar_100/resnet_ae_l2_00001_2_augmneted'
+history_path = './history/history_resnet_ae_l2_00001_cifar_100_2_augmented'
+save_interval = 5
+
 # imagenet:  mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
 # cifar100:  mean=[0.507, 0.487, 0.441], std=[0.267, 0.256, 0.276])
-transforms = T.Compose(
-            [T.ToPILImage(),
-             T.Resize([64, 64]),
-             T.ToTensor(),
-             T.Normalize(mean=[0.507, 0.487, 0.441], 
-                         std=[0.267, 0.256, 0.276]
-                         )
-             ])
-# remove normalize after testing
+
+# Transformations
+color_jitter = T.ColorJitter(brightness=0.8, contrast=0.8, 
+                                      saturation=0.8, hue=0.2)
+
+rnd_color_jitter = T.RandomApply([color_jitter], p=0.8)
+
+rnd_rcrop = T.RandomResizedCrop(size=32, scale=(0.08, 1.0), 
+                                         interpolation=2)
+                                
+rnd_rotation = T.transforms.RandomRotation(degrees=(0, 180))
+# rnd_hflip = T.RandomHorizontalFlip(p=.5)
+# rnd_vflip = T.RandomVerticalFlip(p=.5)
+
+transforms = T.Compose([
+                                      T.ToTensor(),
+                                      rnd_rcrop,
+                                      rnd_rotation,
+                                      rnd_color_jitter,
+                                      
+                                      ])
+
+if not os.path.exists(ckpt_path):
+    os.makedirs(ckpt_path)
+    print('Created Directory: ', ckpt_path)
+else:
+    print('Directory is already there!!')
 
 
-# data = CustomDataset(path=train_data_path, 
-#                      transforms=transforms, 
-#                      grid_size=grid_size)
-
-data = PatchCIFAR100(transforms=transforms, 
+data = MultiPatchCIFAR100(transforms=transforms, 
                      grid_size=grid_size,
                      root='data', train=True, 
                      )
 
 train_data = DataLoader(data, 
-                      batch_size=batch_size, 
-                      shuffle=True)
-print(len(train_data))
-model = PatchAutoEncoder(in_channels=3, out_channels=256)
-print(summary(model.cuda(), (8, 3, 16, 16)))
-# model = AutoEncoder(in_channels=3, out_channels=64)
-# criterion = t.nn.MSELoss()
+                        batch_size=batch_size, 
+                        shuffle=True)
 
-criterion1 = SSIM(data_range=255, size_average=True, channel=3)    #MS_SSIM(data_range=255,  win_size=1, size_average=True, channel=3)
-criterion2 = t.nn.L1Loss()
+print('Number of Batches: ', len(train_data))
+print('Number of training epochs: ', end_epoch-start_epoch)
 
+model = PatchAutoEncoder(in_channels=3, out_channels=64, flatten=True)  
+
+criterion1 = t.nn.MSELoss()
 optimizer = t.optim.Adam(model.parameters(), lr=learning_rate)
 
-trainer = Trainer('patchautoencoder', model, criterion1, criterion2,
-                   optimizer, train_data, None, True)
-start = time.process_time()
-loss_history = trainer.train(epochs=epochs, loss_name=loss_name,
-                            checkpoint_interval=save_interval, 
-                            checkpoint_path=ckpt_path)
+trainer = Trainer(model, criterion1, 
+                  optimizer, train_data, None, True)
 
-print(time.process_time() - start)
-# print(loss_history)
-plt.plot(list(range(0, epochs)), loss_history)
-plt.xlabel('Epochs')
-plt.ylabel('Loss')
-plt.savefig('lr_curve/cifar100/learning_curve_l1_ssim_00001_resnet_encoder.png')
+loss_history = trainer.train(start_epoch=start_epoch, 
+                             end_epoch=end_epoch,
+                             checkpoint_interval=save_interval, 
+                             checkpoint_path=ckpt_path,
+                             history_path=history_path,
+                             lamda = lmbda,
+                             steps_per_epoch=len(train_data)
+                             )
+
+loss_df = pd.DataFrame(loss_history, columns=['Loss'])
+loss_df.to_csv(history_path+ '_' + str(start_epoch) + '.csv', index=False)
+

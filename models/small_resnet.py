@@ -88,7 +88,7 @@ class ResNet(nn.Module):
         self.layer1 = self._make_layer(block, channels[0], layers[0])
         self.layer2 = self._make_layer(block, channels[1], layers[1], stride=2)
         self.layer3 = self._make_layer(block, channels[2], layers[2], stride=2)
-        #self.avgpool = nn.AvgPool2d(8, stride=1)
+        self.avgpool = nn.AvgPool2d(8, stride=1)
         self.avgpool = nn.AdaptiveAvgPool2d(1) #global pooling
         if(flatten): self.feature_size = channels[2]*block.expansion
 
@@ -129,7 +129,7 @@ class ResNet(nn.Module):
             x = self.avgpool(x)
             x = x.view(x.size(0), -1)
         
-        #x = self.fc(x)
+        
 
         return x
 

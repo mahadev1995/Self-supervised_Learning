@@ -3,17 +3,17 @@ import torch.nn as nn
 
 
 class ConvTower(nn.Module):
-    def __init__(self, in_channels=3, out_channels=256):
+    def __init__(self, in_channels=3, out_channels=32):
         super(ConvTower, self).__init__()
     
         self.block = nn.Sequential(
-                                    nn.Conv2d(in_channels, 64, 3, stride=2, padding=1),
+                                    nn.Conv2d(in_channels, out_channels//4, 3, stride=2, padding=1),
                                     nn.LeakyReLU(),
 
-                                    nn.Conv2d(64, 128, 3, stride=2, padding=1),
+                                    nn.Conv2d(out_channels//4, out_channels//2, 3, stride=2, padding=1),
                                     nn.LeakyReLU(),
 
-                                    nn.Conv2d(128, out_channels, 3, stride=2, padding=1),
+                                    nn.Conv2d(out_channels//2, out_channels, 3, stride=2, padding=1),
 
                                   )
 
@@ -45,22 +45,22 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-  def __init__(self, in_channels=512, out_channels=3):
+  def __init__(self, in_channels=256, out_channels=3):
     super(Decoder, self).__init__()
     self.decoder_block = nn.Sequential(
-        nn.Conv2d(in_channels, 256, 3, padding='same'),
-        nn.ReLU(),
-
-        nn.Upsample(scale_factor=2, mode='nearest'),
-        nn.Conv2d(256, 128, 3, padding=1),
+        nn.Conv2d(in_channels, 32, 1, padding='same'),
         nn.ReLU(),
         
         nn.Upsample(scale_factor=2, mode='nearest'),
-        nn.Conv2d(128, 64, 3, padding=1),
+        nn.Conv2d(32, 16, 3, padding=1),
         nn.ReLU(),
 
         nn.Upsample(scale_factor=2, mode='nearest'),
-        nn.Conv2d(64, out_channels, 3, padding=1),
+        nn.Conv2d(16, 8, 3, padding=1),
+        nn.ReLU(),
+
+        nn.Upsample(scale_factor=2, mode='nearest'),
+        nn.Conv2d(8, out_channels, 3, padding=1),
         nn.Sigmoid(), 
         # nn.Tanh(),           
     )
@@ -70,9 +70,9 @@ class Decoder(nn.Module):
     return decoder_output
 
 
-class PatchAutoEncoder(nn.Module):
+class SmallPatchAutoEncoder(nn.Module):
   def __init__(self, in_channels=3, out_channels=64):
-    super(PatchAutoEncoder, self).__init__()
+    super(SmallPatchAutoEncoder, self).__init__()
     self.encoder = Encoder(in_channels, out_channels)
     self.decoder = Decoder(out_channels*8, in_channels)
 
