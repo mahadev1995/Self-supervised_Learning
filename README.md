@@ -1,4 +1,4 @@
-# Self supervised Learning
+# Visual Word Embedding: A Self-Supervised Learning Approach for Image Embeddings
 
 Self-supervised learning approaches can lessen the need for large-scale labeled datasets when using deep learning techniques to solve computer visionrelated tasks. In this work, we propose a self-supervised learning method - “Visual Word Embeddings”. 
 
