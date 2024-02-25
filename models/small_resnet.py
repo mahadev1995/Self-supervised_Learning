@@ -1,3 +1,9 @@
+"""
+The Implementation is taken from: https://github.com/mpatacchiola/self-supervised-relational-reasoning/blob/master/backbones/resnet_small.py
+The git repository contains original implementation from the paper: 
+'Self-Supervised Relational Reasoning for Representation Learning" (2020), Patacchiola, M., and Storkey, A., Advances in Neural Information Processing Systems (NeurIPS), Spotlight (Top 3%)'
+"""
+
 import torch
 import torch.nn as nn
 import math
